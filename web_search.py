@@ -320,6 +320,7 @@ def find_url_with_context(soup_or_response, context_size=1):
                 link_index = i
                 break
         # If link is inside a paragraph, use that as context
+        context_paragraphs=None
         if link_index >= 0:
             start_idx = max(0, link_index - context_size)
             end_idx = min(len(paragraphs), link_index + context_size + 1)
@@ -329,6 +330,7 @@ def find_url_with_context(soup_or_response, context_size=1):
             #closest_p = min(paragraphs, key=lambda p: abs(p.sourceline - a_tag.sourceline)) if paragraphs else None
             #context_paragraphs = [closest_p] if closest_p else []
         # Extract text from context paragraphs
+        context_text=None
         if context_paragraphs:
             context_text = [p.get_text(strip=True) for p in context_paragraphs]
         results.append({
