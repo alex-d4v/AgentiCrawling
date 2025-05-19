@@ -187,7 +187,7 @@ def generate_schema(state: ScraperState) -> ScraperState:
         state["discovered_schema"] = {"error": "No pages were successfully fetched"}
         return state
 
-    schema_json , generated_text = intg.infer_scema(state['fetched_pages'] , state['query'] , tokenizer , device , model)
+    schema_json , generated_text = intg.infer_schema(state['fetched_pages'] , state['query'] , state['discovered_schema'] , tokenizer , device , model)
     try :
         if isinstance(schema_json, str) and schema_json.startswith("Error"):
             # Fallback if JSON extraction fails

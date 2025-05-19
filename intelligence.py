@@ -173,7 +173,7 @@ def next_page_decision(model, tokenizer, device, url, txt,user_prompt,query_num=
         print(f"Error generating response: {e}")
         return []
 
-def infer_scema(fetched_pages , query , tokenizer , device , model):
+def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , model):
     # Prepare content for schema generation
     page_samples = []
     total_chars = 0
@@ -194,7 +194,7 @@ def infer_scema(fetched_pages , query , tokenizer , device , model):
             break
     
     combined_content = "\n\n---\n\n".join(page_samples)
-    
+    middle_line = f"Adjust based on this probable schema {probable_schema}"
     # Create a schema generation prompt for your model
     prompt = f"""
     <|user|>
@@ -202,11 +202,11 @@ def infer_scema(fetched_pages , query , tokenizer , device , model):
     Focus on only one entity to analyze .
     I have collected content from {len(fetched_pages)} web pages about: {query}
     Based on the content below, develop a solid dataset schema that could represent this information effectively .
-    First, analyze what types of entities and properties exist in this content.
-    Provide only one entity that can be turned into a table format .
-    Then, create a structured schema with appropriate data types that can be converted to a .csv file .
-    Here's sample content from the pages:
+    {"Create a structured schema with appropriate data types that can be converted to a .csv file ." if len(probable_schema)==0 else ""}
+    {middle_line if len(probable_schema)>0 else ""}
     
+    Here's sample content from the pages:
+
     {combined_content}
     
     Format your response as valid JSON that can be parsed with json.loads().
