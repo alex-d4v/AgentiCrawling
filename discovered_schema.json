@@ -1,24 +1,61 @@
 {
-  "schemaReasoning": "Given the content from the web pages, the dataset schema will focus on the entity 'Vegetables'. The schema will include fields that capture the essential attributes of vegetables, such as name, type, nutritional information, and source.",
-  "datasetSchema": {
-    "vegetables": [
+  "schema_reasoning": "The content provided is focused on GPUs for gaming, mentioning awards, price ranges, and recommendations. The schema will capture the essential attributes of GPUs such as title, publication date, content summary, and a list of recommended GPUs with their specifications.",
+  "dataset_schema": {
+    "title": "GPU_Recommendations",
+    "fields": [
       {
-        "id": "integer",
-        "name": "string",
+        "name": "source_title",
         "type": "string",
-        "nutritionalProfile": {
-          "calories": "integer",
-          "protein": "integer",
-          "carbohydrates": "integer",
-          "fats": "integer",
-          "vitamins": "array of strings",
-          "minerals": "array of strings"
+        "description": "The title of the web page where the GPU information was found."
+      },
+      {
+        "name": "publication_date",
+        "type": "string",
+        "description": "The date when the content was published."
+      },
+      {
+        "name": "content_summary",
+        "type": "string",
+        "description": "A brief summary of the content."
+      },
+      {
+        "name": "recommended_gpus",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of the GPU."
+            },
+            "manufacturer": {
+              "type": "string",
+              "description": "The manufacturer of the GPU."
+            },
+            "price_range": {
+              "type": "string",
+              "description": "The price range of the GPU."
+            },
+            "performance_rating": {
+              "type": "string",
+              "description": "A performance rating or score given by the source."
+            },
+            "release_date": {
+              "type": "string",
+              "description": "The release date of the GPU."
+            }
+          },
+          "required": [
+            "name",
+            "manufacturer",
+            "price_range",
+            "performance_rating",
+            "release_date"
+          ]
         },
-        "source": {
-          "title": "string",
-          "url": "string"
-        }
+        "description": "A list of GPUs recommended by the source, including their names, manufacturers, price ranges, performance ratings, and release dates."
       }
-    ]
+    ],
+    "description": "This schema represents the information about GPUs for gaming based on the content from various web pages. It includes the title of the source, publication date, content summary, and a list of recommended GPUs with their specifications."
   }
 }

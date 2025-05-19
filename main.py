@@ -238,23 +238,17 @@ def relative_pages(state: ScraperState) -> ScraperState:
         #endif
     #endfor
     # 2. visit pages and check if relevant
-    counter = 0
-    rel = 0
-    non_rel = 1
     relative_urls = []
     for cp in crawl_pages :
         response = wb.visit_website(cp["url"])
         if response.get("soup"):
             # Extract paragraphs
             urls = wb.find_url_with_context(response)
-            for url in urls:
-                # Check if relevant 
-                urls = intg.check_relevance(url,state["discovered_schema"], tokenizer , device , model)
-                relative_urls.extend(urls)
-            #endfor
+            urls = intg.check_relevance(urls,state["discovered_schema"], tokenizer , device , model)
+            relative_urls.extend(urls)
         #endif
+        print(relative_urls)
     #endif        
-    print(relative_urls)
 # Define a global context variable to store non-serializable objects
 llm_context = {}
 

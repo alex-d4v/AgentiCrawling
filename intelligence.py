@@ -304,10 +304,9 @@ def check_relevance(url , schema , tokenizer , device , model):
     # Prepare content for schema generation
     prompt = f"""
     <|user|>
-    You are an expert on analyzing the relevance of text . You are able to only say yes or no . 
+    You are an expert on analyzing the relevance of text .
     I have a schema {schema} .
     I want to know if these {url} are likely to be related to the schema provided .
-    
     Format your response as valid JSON that can be parsed with json.loads().
     The JSON should include your reasoning process and the the probable urls in a list .
     <|assistant|>
@@ -320,14 +319,13 @@ def check_relevance(url , schema , tokenizer , device , model):
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=300,# limit the dataset field length
+                max_new_tokens=500,# limit the dataset field length
                 temperature=0.2,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )
         
         generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        print(generated_text)
         # Try to extract JSON
         return extract_json(generated_text)
             
