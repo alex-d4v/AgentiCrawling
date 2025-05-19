@@ -1,3 +1,30 @@
 {
-  "raw_response": "```json\n\n{\n\n  \"schema_reasoning\": {\n\n    \"entity_focus\": \"Theorems in basic calculus\",\n\n    \"data_types\": {\n\n      \"title\": \"string\",\n\n      \"content\": \"string\",\n\n      \"subcategories\": {\n\n        \"total\": \"integer\",\n\n        \"pages\": \"integer\"\n\n      },\n\n      \"theorems\": {\n\n        \"count\": \"integer\",\n\n        \"list\": [\n\n          {\n\n            \"name\": \"string\",\n\n            \"description\": \"string\"\n\n          }\n\n        ]\n\n      }\n\n    },\n\n    \"final_schema\": {\n\n      \"title\": \"Calculus Theorems\",\n\n      \"properties\": {\n\n        \"title\": {\n\n          \"type\": \"string\"\n\n        },\n\n        \"content\": {\n\n          \"type\": \"string\"\n\n        },\n\n        \"subcategories\": {\n\n          \"total\": {\n\n            \"type\": \"integer\"\n\n          },\n\n          \"pages\": {\n\n            \"type\": \"integer\"\n\n          }\n\n        },\n\n        \"theorems\": {\n\n          \"count\": {\n\n            \"type\": \"integer\"\n\n          },\n\n          \"list\": {\n\n            \"type\": \"array\",\n\n            \"items\": {\n\n              \"type\": \"object\",\n\n              \"properties\": {\n\n                \"name\": {\n\n                  \"type\": \"string\"\n\n                },\n\n                \"description\": {\n\n                  \"type\": \"string\"\n\n                }\n\n              },\n\n              \"required\": [\"name\", \"description\"]\n\n            }\n\n          }\n\n        }\n\n      }\n\n    }\n\n  },\n\n  \"final_schema_json\": '{\"title\":\"Calculus Theorems\",\"properties\":{\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"subcategories\":{\"total\":{\"type\":\"integer\"},\"pages\":{\"type\":\"integer\"}},\"theorems\":{\"count\":{\"type\":\"integer\"},\"list\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"description\":{\"type\":\"string\"}}},\"required\":[\"name\",\"description\"]}}}}'\n\n}\n\n```"
+  "schema_reasoning": "The content provided indicates a focus on music genres and their popularity. The data appears to be categorical with potential for quantitative analysis.",
+  "schema": {
+    "fields": [
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "source",
+        "type": "string"
+      },
+      {
+        "name": "genre_count",
+        "type": "integer"
+      },
+      {
+        "name": "popularity_rank",
+        "type": "integer"
+      },
+      {
+        "name": "examples",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    ]
+  }
 }
