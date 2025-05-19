@@ -300,19 +300,16 @@ def infer_scema(fetched_pages , query , tokenizer , device , model):
         print(f"Error generating schema: {e}")
         return "Error" , generated_text
     
-def check_relevance(paragraphs , schema , tokenizer , device , model):
+def check_relevance(url , schema , tokenizer , device , model):
     # Prepare content for schema generation
-    max_chars = 3000  # Limit to fit in context window
-    combined_content = "\n\n---\n\n".join([p['text'] for p in paragraphs])
-    combined_content = combined_content[:max_chars]# maybe sampling or stemming will help
-    # Create a schema generation prompt for your model
     prompt = f"""
     <|user|>
     You are an expert on analyzing the relevance of text . You are able to only say yes or no . 
     I have a schema {schema} .
-    I want to know if this {combined_content} is related to the schema provided .
+    I want to know if these {url} are likely to be related to the schema provided .
     
-    Provide only a yes or no answer .
+    Format your response as valid JSON that can be parsed with json.loads().
+    The JSON should include your reasoning process and the the probable urls in a list .
     <|assistant|>
     """
     
@@ -323,15 +320,17 @@ def check_relevance(paragraphs , schema , tokenizer , device , model):
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=25,# limit the dataset field length
+                max_new_tokens=300,# limit the dataset field length
                 temperature=0.2,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )
         
         generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        return re.search("yes|Yes", generated_text) 
-        
+        print(generated_text)
+        # Try to extract JSON
+        return extract_json(generated_text)
+            
     except Exception as e:
         print(f"Error generating schema: {e}")
         return "Error" , generated_text

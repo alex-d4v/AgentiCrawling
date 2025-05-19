@@ -272,7 +272,7 @@ def get_all_urls(soup_or_response, base_url=None):
     
     return urls
 
-def find_url_with_context(soup_or_response, url_pattern, context_size=1):
+def find_url_with_context(soup_or_response, context_size=1):
     """
     Find URLs matching a pattern and return them with their surrounding text context.
     
@@ -295,17 +295,9 @@ def find_url_with_context(soup_or_response, url_pattern, context_size=1):
     if not soup:
         return []
     
-    # Compile regex pattern if string is provided
-    if isinstance(url_pattern, str):
-        pattern = re.compile(url_pattern, re.IGNORECASE)
-    else:
-        pattern = url_pattern
-    
-    results = []
-    
     # Get all URLs
     all_urls = get_all_urls(soup, base_url)
-    
+    results = []
     for url_info in all_urls:
         a_tag = soup.find_all('a', href=True)[url_info['index']]
         # Get the parent container of the link
