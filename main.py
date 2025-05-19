@@ -198,8 +198,6 @@ def generate_schema(state: ScraperState) -> ScraperState:
     except Exception as e:
         print(f"Error generating schema: {e}")
         state["discovered_schema"] = {"error": str(e)}
-    print("\nDiscovered Schema:")
-    print(json.dumps(state["discovered_schema"], indent=2))
     
     # Save schema to file
     with open("discovered_schema.json", "w") as f:
@@ -249,12 +247,10 @@ def relative_pages(state: ScraperState) -> ScraperState:
             paragraphs = wb.get_all_paragraphs(response)
             # Check if relevant 
             if intg.check_relevance(paragraphs,state["discovered_schema"], tokenizer , device , model):
-                #print(f"Page {response["url"]} is relevant .")
-                #print(f"{paragraphs}")
                 relativePages.append(cp['url'])
                 counter+=1
             #endif
-            if counter>5:
+            if counter>10:
                 break
         #endif
     #endif        
