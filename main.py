@@ -244,8 +244,25 @@ def relative_pages(state: ScraperState) -> ScraperState:
         if response.get("soup"):
             # Extract paragraphs
             urls = wb.find_url_with_context(response)
-            urls = intg.check_relevance(urls,state["discovered_schema"], tokenizer , device , model)
-            relative_urls.extend(urls)
+            # give urls in batches
+            prevTake=0# it has to stop sometime...
+            for num in range(0,len(urls),10):
+                try :
+                    gen_urls = intg.check_relevance(urls[num:num+10],state["discovered_schema"], tokenizer , device , model)
+                except Exception as e:
+                    gen_urls = intg.check_relevance(urls[num:],state["discovered_schema"], tokenizer , device , model)
+                finally :
+                    if gen_urls:
+                        # this takes a lot of time . 
+                        # it is also inaccurate .
+                        # let's simplify .
+                        print(gen_urls)
+                        relative_urls.extend(gen_urls)
+                        if len(gen_urls['probable_urls'])>prevTake:
+                            prevTake=len(gen_urls['probable_urls'])
+                        else:
+                            break
+                    #endif
         #endif
         print(relative_urls)
     #endif        

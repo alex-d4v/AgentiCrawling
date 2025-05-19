@@ -305,21 +305,23 @@ def check_relevance(url , schema , tokenizer , device , model):
     prompt = f"""
     <|user|>
     You are an expert on analyzing the relevance of text .
-    I have a schema {schema} .
+    I have a dataset schema {schema} .
     I want to know if these {url} are likely to be related to the schema provided .
+    Select the probable urls . It might be true that none of them is related to the schema provided .
+
     Format your response as valid JSON that can be parsed with json.loads().
-    The JSON should include your reasoning process and the the probable urls in a list .
+    The JSON should include your reasoning process and the the probable urls in a list under the name probable_urls .
     <|assistant|>
     """
     
     # Generate schema with the LLM
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    inputs = tokenizer(prompt[:3000], return_tensors="pt").to(device)
     
     try:
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=500,# limit the dataset field length
+                max_new_tokens=250,# limit the dataset field length
                 temperature=0.2,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
@@ -327,8 +329,12 @@ def check_relevance(url , schema , tokenizer , device , model):
         
         generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
         # Try to extract JSON
-        return extract_json(generated_text)
-            
+        if generated_text :
+            gen_schema = extract_json(generated_text)
+            if isinstance(gen_schema,dict):
+                return gen_schema
+        else : 
+            return None
     except Exception as e:
         print(f"Error generating schema: {e}")
         return "Error" , generated_text
