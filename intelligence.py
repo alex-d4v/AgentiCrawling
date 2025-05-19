@@ -307,10 +307,10 @@ def check_relevance(url , schema , tokenizer , device , model):
     You are an expert on analyzing the relevance of text .
     I have a dataset schema {schema} .
     I want to know if these {url} are likely to be related to the schema provided .
-    Select the probable urls . It might be true that none of them is related to the schema provided .
-
+    Select the probable urls that might lead to data related to this schema .
+    
     Format your response as valid JSON that can be parsed with json.loads().
-    The JSON should include your reasoning process and the the probable urls in a list under the name probable_urls .
+    The JSON should include the reasoning process under the name reasoning and the the probable urls in a list under the name probable_urls .
     <|assistant|>
     """
     

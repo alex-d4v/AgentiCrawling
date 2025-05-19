@@ -1,11 +1,8 @@
-import langgraph.graph as lg
 from langgraph.graph import END, StateGraph
 from typing import Dict, List, Any, TypedDict, Optional
 import pandas as pd
 import json
 import time
-import re
-import torch
 
 # Import your existing modules
 import intelligence as intg
@@ -246,9 +243,10 @@ def relative_pages(state: ScraperState) -> ScraperState:
             urls = wb.find_url_with_context(response)
             # give urls in batches
             prevTake=0# it has to stop sometime...
-            for num in range(0,len(urls),15):
+            toBreak = 0
+            for num in range(0,len(urls),10):
                 try :
-                    gen_urls = intg.check_relevance(urls[num:num+15],state["discovered_schema"], tokenizer , device , model)
+                    gen_urls = intg.check_relevance(urls[num:num+10],state["discovered_schema"], tokenizer , device , model)
                 except Exception as e:
                     gen_urls = intg.check_relevance(urls[num:],state["discovered_schema"], tokenizer , device , model)
                 finally :
@@ -256,15 +254,16 @@ def relative_pages(state: ScraperState) -> ScraperState:
                         # this takes a lot of time . 
                         # it is also inaccurate .
                         # let's simplify .
-                        print(gen_urls)
                         relative_urls.extend([gen_urls])
                         if len(gen_urls['probable_urls'])>prevTake:
                             prevTake=len(gen_urls['probable_urls'])
                         else:
-                            break
+                            if toBreak>1:
+                                break
+                            toBreak+=1
                     #endif
+                print(relative_urls)
         #endif
-        print(relative_urls)
     #endif        
 # Define a global context variable to store non-serializable objects
 llm_context = {}

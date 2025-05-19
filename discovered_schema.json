@@ -1,61 +1,23 @@
 {
-  "dataset_schema": {
-    "title": "Seafood Recipes Dataset",
-    "description": "A dataset schema representing seafood dinner ideas from various sources.",
-    "fields": [
-      {
-        "name": "source_title",
-        "type": "string",
-        "description": "The title of the web page where the recipe was found."
-      },
-      {
-        "name": "source_author",
-        "type": "string",
-        "description": "The author of the content on the web page."
-      },
-      {
-        "name": "source_last_updated",
-        "type": "string",
-        "description": "The last updated date of the content in YYYY-MM-DD format."
-      },
-      {
-        "name": "recipe_title",
-        "type": "string",
-        "description": "The title of the seafood recipe."
-      },
-      {
-        "name": "recipe_description",
-        "type": "string",
-        "description": "A brief description of the seafood recipe."
-      },
-      {
-        "name": "ingredients",
-        "type": "array",
-        "description": "A list of ingredients required for the recipe.",
-        "items": {
-          "type": "string"
-        }
-      },
-      {
-        "name": "cooking_time",
-        "type": "integer",
-        "description": "The estimated time required to cook the recipe, in minutes."
-      },
-      {
-        "name": "servings",
-        "type": "integer",
-        "description": "The number of servings the recipe yields."
-      },
-      {
-        "name": "difficulty_level",
-        "type": "string",
-        "description": "The difficulty level of the recipe (e.g., Easy, Medium, Hard)."
-      },
-      {
-        "name": "special_instructions",
-        "type": "string",
-        "description": "Any special instructions or tips for the recipe."
-      }
-    ]
+  "schemaReasoning": "The goal is to create a dataset schema that can represent information about building web crawlers, including methods and types. The schema should be able to capture the title, publication date, content, and any specific details about the web crawler method or type mentioned.",
+  "schema": {
+    "title": "String",
+    "publicationDate": "Date",
+    "content": "String",
+    "methodType": {
+      "type": "String",
+      "description": "The type of method used to build the web crawler, e.g., 'Scratch', 'Tool', 'Library'."
+    },
+    "crawlerDetails": {
+      "dataExtracted": "Number",
+      "websiteTargeted": "String",
+      "successful": "Boolean"
+    },
+    "additionalResources": {
+      "solutions": "String",
+      "process": "String",
+      "pricing": "String",
+      "blog": "String"
+    }
   }
 }
