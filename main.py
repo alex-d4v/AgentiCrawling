@@ -248,10 +248,10 @@ def relative_pages(state: ScraperState) -> ScraperState:
             # Check if relevant 
             if intg.check_relevance(paragraphs,state["discovered_schema"], tokenizer , device , model):
                 relativePages.append(cp['url'])
-                counter+=1
+                print(f"Found related page : {cp['url']}")
+            else:
+                print(f"Page {cp['url']} is not relevant to schema .")
             #endif
-            if counter>10:
-                break
         #endif
     #endif        
     print(relativePages)

@@ -115,10 +115,11 @@ def duckduckgo_search_requests(query_list):
                                     'title': title,
                                     'url': actual_url
                                 })
-                    
+                    #endfor
                     found += 1
                     results.extend(search_results)
                     print(f"Found {len(search_results)} results for query: {query}")
+                    break
                 else:
                     print(f"Failed to retrieve results for query: {query}")
                 

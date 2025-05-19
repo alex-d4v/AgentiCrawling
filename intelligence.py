@@ -202,7 +202,7 @@ def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , m
     Focus on only one entity to analyze .
     I have collected content from {len(fetched_pages)} web pages about: {query}
     Based on the content below, develop a solid dataset schema that could represent this information effectively .
-    {"Create a structured schema with appropriate data types that can be converted to a .csv file ." if len(probable_schema)==0 else ""}
+    {"Create a structured schema with appropriate data types that can be converted to tabular format ." if len(probable_schema)==0 else ""}
     {middle_line if len(probable_schema)>0 else ""}
     
     Here's sample content from the pages:

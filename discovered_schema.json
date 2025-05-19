@@ -1,0 +1,24 @@
+{
+  "schemaReasoning": "Given the content from the web pages, the dataset schema will focus on the entity 'Vegetables'. The schema will include fields that capture the essential attributes of vegetables, such as name, type, nutritional information, and source.",
+  "datasetSchema": {
+    "vegetables": [
+      {
+        "id": "integer",
+        "name": "string",
+        "type": "string",
+        "nutritionalProfile": {
+          "calories": "integer",
+          "protein": "integer",
+          "carbohydrates": "integer",
+          "fats": "integer",
+          "vitamins": "array of strings",
+          "minerals": "array of strings"
+        },
+        "source": {
+          "title": "string",
+          "url": "string"
+        }
+      }
+    ]
+  }
+}
