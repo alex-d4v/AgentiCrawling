@@ -16,6 +16,7 @@ class ScraperState(TypedDict, total=False):
     fetched_pages: List[Dict]
     current_batch: List[Dict]
     examine_urls: List[str]
+    relative_urls: List[Dict]
     discovered_schema: Dict
     batch_size: int
     batch_count: int
@@ -241,6 +242,7 @@ def relative_pages(state: ScraperState) -> ScraperState:
         if response.get("soup"):
             # Extract paragraphs
             urls = wb.find_url_with_context(response)
+            print(f"{urls}")
             # give urls in batches
             prevTake=0# it has to stop sometime...
             toBreak = 0
@@ -254,17 +256,52 @@ def relative_pages(state: ScraperState) -> ScraperState:
                         # this takes a lot of time . 
                         # it is also inaccurate .
                         # let's simplify .
-                        relative_urls.extend([gen_urls])
-                        if len(gen_urls['probable_urls'])>prevTake:
-                            prevTake=len(gen_urls['probable_urls'])
-                        else:
-                            if toBreak>1:
+                        if gen_urls.get('probable_urls',None):
+                            relative_urls.extend([gen_urls])
+                            if len(gen_urls['probable_urls'])>=2 or len(relative_urls)>25:#hardcoded for now
                                 break
-                            toBreak+=1
+                        #    prevTake=len(gen_urls['probable_urls'])
+                        #else:
+                        #    if toBreak>1:
+                        #    toBreak+=1
                     #endif
                 print(relative_urls)
         #endif
-    #endif        
+        if len(relative_urls)>25:
+            print("Found enough relative pages, stopping search")
+            break
+    #endfor
+    state['relative_urls'] = relative_urls
+
+def create_dataset(state: ScraperState) -> ScraperState:
+    global llm_context
+    # Access the global context
+    global llm_context
+    model = llm_context["model"]
+    tokenizer = llm_context["tokenizer"]
+    device = llm_context["device"]
+    schema = state["discovered_schema"]
+    if not state["relative_urls"]:
+        state["discovered_schema"] = {"error": "No schema was produced ."}
+        return state
+    '''
+        Crawl probable webpages based on previous results .
+        1. get urls from already scrapped pages .
+        2. find relevance
+        3. populate
+    '''
+    # 1. get all urls
+    crawl_pages = []
+    for urls in state['probable_urls']:
+        for url in urls:
+            # 1.1 get urls from pages
+            page = wb.visit_website(url)
+            par = wb.get_all_paragraphs(page['soup'])
+            text = "\n".join([p["text"] for p in par])
+            row = intg.row_creation(text , schema , tokenizer , device , model)
+            print(f"Row created: {row}")
+    #endfor
+   
 # Define a global context variable to store non-serializable objects
 llm_context = {}
 
@@ -280,6 +317,7 @@ def create_scraper_graph():
     graph.add_node("fetch_batch_of_pages", fetch_batch_of_pages)# fetch pages in batches to determine the probable schema .
     graph.add_node("generate_schema", generate_schema)
     graph.add_node("relative_pages" , relative_pages)
+    graph.add_node("create_dataset", create_dataset)  # Create dataset from the schema
     # start crawling
     
     # Add edges
@@ -287,8 +325,9 @@ def create_scraper_graph():
     graph.add_edge("generate_search_queries", "fetch_batch_of_pages")
     graph.add_edge("fetch_batch_of_pages", "generate_schema")
     graph.add_edge("generate_schema", "relative_pages")
-    
-    graph.add_edge("relative_pages", END)
+    graph.add_edge("relative_pages", "create_dataset")
+
+    graph.add_edge("create_dataset", END)
     
     # Set entry point
     graph.set_entry_point("initialize_system")
@@ -318,6 +357,7 @@ def main():
         "fetched_pages": [],
         "current_batch": [],
         "discovered_schema": {},
+        "relative_urls": [],
         "batch_size": 5,
         "batch_count": 0,
         "dataset_path": dataset_path,

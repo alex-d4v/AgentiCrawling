@@ -338,3 +338,42 @@ def check_relevance(url , schema , tokenizer , device , model):
     except Exception as e:
         print(f"Error generating schema: {e}")
         return "Error" , generated_text
+    
+def row_creation(text, schema , tokenizer , device , model):
+    # Prepare content for schema generation
+    prompt = f"""
+    <|user|>
+    You are an expert on extracting relevant information from text .
+    I have a dataset schema {schema} .
+    I want to create a row based on this text : {text}
+    
+    Format your response as valid JSON that can be parsed with json.loads().
+    The JSON should include the reasoning process under the name reasoning and the row in a list under the name row .
+    If the text is not related to the schema, return an empty row.
+    <|assistant|>
+    """
+    
+    # Generate schema with the LLM
+    inputs = tokenizer(prompt[:3000], return_tensors="pt").to(device)
+    
+    try:
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=250,# limit the dataset field length
+                temperature=0.2,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        
+        generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        # Try to extract JSON
+        if generated_text :
+            gen_row = extract_json(generated_text)
+            if isinstance(gen_row,dict):
+                return gen_row
+        else : 
+            return None
+    except Exception as e:
+        print(f"Error generating schema: {e}")
+        return "Error" , generated_text
