@@ -111,7 +111,6 @@ def duckduckgo_search_requests(query_list):
                                 actual_url = urllib.parse.unquote(actual_url)
                                 
                                 search_results.append({
-                                    'query': query,
                                     'title': title,
                                     'url': actual_url
                                 })

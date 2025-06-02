@@ -21,9 +21,11 @@ def extract_json(text):
     # Find JSON pattern using regex
     # Look for content between triple backticks and json keyword
     pattern = r"```json\s*([\s\S]*?)\s*```"
+    pattern_2 = r"\{\s*([\s\S]*?)\s\*\}"
     
     match = re.search(pattern, text)
-    
+    match_2 = re.search(pattern_2, text)
+
     if match:
         json_text = match.group(1)
         try:
@@ -32,8 +34,24 @@ def extract_json(text):
             return json_data
         except json.JSONDecodeError as e:
             return f"Error parsing JSON: {e}"
+    elif match_2:
+        json_text = match_2.group(0)
+        try:
+            # Parse the extracted text as JSON
+            json_data = json.loads(json_text)
+            return json_data
+        except json.JSONDecodeError as e:
+            return f"Error parsing JSON: {e}"
     else:
-        return "No JSON found in the text"
+        try:
+            # Try to parse the entire text as JSON
+            json_data = json.loads(text)
+            return json_data
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON: {e}")
+            # If no JSON found, return a message
+        finally:
+            return "No JSON found in the text"
 
 def initialize_llm():
     """
@@ -104,9 +122,7 @@ def query_creator(model, tokenizer, device, entity, context,user_prompt,query_nu
             )
         
         generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        print(generated_text)
         response = generated_text.strip()
-        print(response)
         # Try to parse JSON from the response
         try:
             query_data = extract_json(response)
@@ -158,9 +174,7 @@ def next_page_decision(model, tokenizer, device, url, txt,user_prompt,query_num=
             )
         
         generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        print(generated_text)
         response = generated_text.strip()
-        print(response)
         # Try to parse JSON from the response
         try:
             query_data = extract_json(response)
@@ -237,69 +251,6 @@ def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , m
         print(f"Error generating schema: {e}")
         return "Error" , generated_text
     
-def infer_scema(fetched_pages , query , tokenizer , device , model):
-    # Prepare content for schema generation
-    page_samples = []
-    total_chars = 0
-    max_chars = 3000  # Limit to fit in context window
-    
-    for page in fetched_pages:
-        # Add title and first part of content
-        content = page.get("content", "")
-        title = page.get("title", "Untitled")
-        
-        # Calculate how much content we can add
-        sample_text = f"Title: {title}\n\nContent:\n{content[:100]}"
-        
-        if total_chars + len(sample_text) <= max_chars:
-            page_samples.append(sample_text)
-            total_chars += len(sample_text)
-        else:
-            break
-    
-    combined_content = "\n\n---\n\n".join(page_samples)
-    
-    # Create a schema generation prompt for your model
-    prompt = f"""
-    <|user|>
-    You are an expert on creating dataset schemas for data analysis . 
-    Focus on only one entity to analyze .
-    I have collected content from {len(fetched_pages)} web pages about: {query}
-    Based on the content below, develop a solid dataset schema that could represent this information effectively.
-    First, analyze what types of entities, properties, and relationships exist in this content.
-    Then, create a structured schema with appropriate data types that can be converted to a .csv file .
-    Here's sample content from the pages:
-    
-    {combined_content}
-    
-    Format your response as valid JSON that can be parsed with json.loads().
-    The JSON should include your reasoning process and the final schema.
-    <|assistant|>
-    """
-    
-    # Generate schema with the LLM
-    inputs = tokenizer(prompt, return_tensors="pt").to(device)
-    
-    try:
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=800,# limit the dataset field length
-                temperature=0.2,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id
-            )
-        
-        generated_text = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        print(generated_text)
-        # Try to extract JSON
-        schema_json = extract_json(generated_text)
-        return schema_json , generated_text
-        
-    except Exception as e:
-        print(f"Error generating schema: {e}")
-        return "Error" , generated_text
-    
 def check_relevance(url , schema , tokenizer , device , model):
     # Prepare content for schema generation
     prompt = f"""
@@ -307,7 +258,8 @@ def check_relevance(url , schema , tokenizer , device , model):
     You are an expert on analyzing the relevance of text .
     I have a dataset schema {schema} .
     I want to know if these {url} are likely to be related to the schema provided .
-    Select the probable urls that might lead to data related to this schema .
+    Select the probable urls that might lead to raw data related to this schema . 
+    The urls should immediately lead to raw data that can be used to fill the schema . 
     
     Format your response as valid JSON that can be parsed with json.loads().
     The JSON should include the reasoning process under the name reasoning and the the probable urls in a list under the name probable_urls .
@@ -321,8 +273,8 @@ def check_relevance(url , schema , tokenizer , device , model):
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=250,# limit the dataset field length
-                temperature=0.2,
+                max_new_tokens=300,# limit the dataset field length
+                temperature=0.175,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )
@@ -360,7 +312,7 @@ def row_creation(text, schema , tokenizer , device , model):
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=250,# limit the dataset field length
+                max_new_tokens=500,# limit the dataset field length
                 temperature=0.2,
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id

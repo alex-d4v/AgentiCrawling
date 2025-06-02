@@ -1,23 +1,38 @@
 {
-  "schemaReasoning": "The goal is to create a dataset schema that can represent information about building web crawlers, including methods and types. The schema should be able to capture the title, publication date, content, and any specific details about the web crawler method or type mentioned.",
-  "schema": {
-    "title": "String",
-    "publicationDate": "Date",
-    "content": "String",
-    "methodType": {
-      "type": "String",
-      "description": "The type of method used to build the web crawler, e.g., 'Scratch', 'Tool', 'Library'."
-    },
-    "crawlerDetails": {
-      "dataExtracted": "Number",
-      "websiteTargeted": "String",
-      "successful": "Boolean"
-    },
-    "additionalResources": {
-      "solutions": "String",
-      "process": "String",
-      "pricing": "String",
-      "blog": "String"
+  "schema_reasoning": "The dataset schema will focus on capturing the essential information about the most famous BMX athletes. The content provided suggests that we are interested in the athletes' names, their achievements, and possibly the sources of the information.",
+  "final_schema": {
+    "athlete_info": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The full name of the BMX athlete."
+        },
+        "nickname": {
+          "type": "string",
+          "description": "The nickname of the BMX athlete, if any."
+        },
+        "years_active": {
+          "type": "string",
+          "description": "The range of years the athlete was active in BMX."
+        },
+        "achievements": {
+          "type": "array",
+          "description": "A list of notable achievements or titles the athlete has won.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string",
+          "description": "The source of the information about the athlete."
+        }
+      },
+      "required": [
+        "name",
+        "achievements",
+        "source"
+      ]
     }
   }
 }

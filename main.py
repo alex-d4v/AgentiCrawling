@@ -7,26 +7,15 @@ import time
 # Import your existing modules
 import intelligence as intg
 import web_search as wb
+import nlp
 
 # State definition
 class ScraperState(TypedDict, total=False):
     # Required fields
     query: str
-    search_results: List[Dict]
-    fetched_pages: List[Dict]
-    current_batch: List[Dict]
-    examine_urls: List[str]
-    relative_urls: List[Dict]
-    discovered_schema: Dict
-    batch_size: int
-    batch_count: int
-    # Optional fields
-    dataset_path: Optional[str]
-    selected_column: Optional[str]
-    dataset_entities: List
-    error: Optional[str]
-    # a context field to pass non-serializable objects like the model
-    context: Dict[str, Any]
+    queries_expansion: List[str]
+    search_results: List[Dict[str, Any]]
+    fetched_pages: List[Dict[str, Any]]
 
 # Node functions
 def initialize_system(state: ScraperState) -> ScraperState:
@@ -69,7 +58,7 @@ def initialize_system(state: ScraperState) -> ScraperState:
     
     return state
 
-def generate_search_queries(state: ScraperState) -> ScraperState:
+def query_expansion(state: ScraperState) -> ScraperState:
     """Generate intelligent search queries based on the user query"""
     # Access the global context
     global llm_context
@@ -103,71 +92,79 @@ def generate_search_queries(state: ScraperState) -> ScraperState:
             query_num=3
         )
         print(f"Generated queries: {queries}")
-    # Now search for these queries
-    search_results = []
-    if queries:
-        search_results = wb.duckduckgo_search_requests(queries)# this has to be a separate state ?
-        print(f"Found {len(search_results)} search results")
     
-    state["search_results"] = search_results
+    state["queries_expansion"] = queries
     return state 
 
-def fetch_batch_of_pages(state: ScraperState) -> Dict:
+def web_search(state: ScraperState) -> ScraperState:
     """
     Fetch a batch of web pages from search results
-        1. visit pages .
-        2. get paragraphs .
+        1. web search using the query_expansion results .
+        2. visit the pages and store their content .
     """
-    batch_size = state["batch_size"]
-    start_idx = state["batch_count"] * batch_size
-    
-    # Filter out URLs we've already processed
-    already_fetched_urls = {page["url"] for page in state["fetched_pages"]}
-    remaining_results = [r for r in state["search_results"] 
-                         if r["url"] not in already_fetched_urls]
-    
-    if not remaining_results:
-        print("No more results to process")
-        return {"state": state, "next": "generate_schema"}
-    
-    # Get current batch
-    end_idx = min(start_idx + batch_size, len(remaining_results))
-    current_batch = remaining_results[start_idx:end_idx]
-    
-    print(f"Fetching batch {state['batch_count']+1}: {len(current_batch)} pages")
-    fetched_batch = []
-    
-    for result in current_batch:
-        print(f"Visiting page: {result['title']}")
-        try:
-            # Use your visit_website function
-            response = wb.visit_website(result["url"])
-            if response.get("soup"):
-                # Extract paragraphs
-                paragraphs = wb.get_all_paragraphs(response)
-                # Store the content
-                fetched_batch.append({
-                    "url": result["url"],
-                    "title": result["title"],
-                    "content": "\n".join([p["text"] for p in paragraphs])
-                })
-                
-                time.sleep(1)  # Be polite to servers
-        except Exception as e:
-            print(f"Error fetching {result['url']}: {e}")
-    
-    # Update state
-    state["current_batch"] = fetched_batch
-    state["fetched_pages"].extend(fetched_batch)
-    state["batch_count"] += 1
-    
-    # Decide next action
-    if len(fetched_batch) == 0:
-        print("Empty batch, moving to schema generation")
-        return {"state": state, "next": "generate_schema"}
-    elif state["batch_count"] >= 5:
-        print("Reached maximum batch count, moving to schema generation")
-        return {"state": state, "next": "generate_schema"}
+    # Access the global context
+    global llm_context
+    model = llm_context["model"]
+    tokenizer = llm_context["tokenizer"]
+    device = llm_context["device"]
+    queries = state["queries_expansion"]
+    web_search_reasults = wb.duckduckgo_search_requests(queries)
+    if not web_search_reasults:
+        state["search_results"] = []
+        state["error"] = "No search results found"
+        return {"state": state, "next": END}
+    print(f"Found {len(web_search_reasults)} search results")
+    state["search_results"] = web_search_reasults
+    # visit the pages and store their content
+    fetched_pages = []
+    for result in state["search_results"]:# this can be done in parallel
+        print(f"Visiting page: {result['title']} | {result['url']}")
+        page = wb.visit_website(result['url'])
+        if not page.get('error'):
+            # extract text as a whole
+            text = page['soup'].get_text()
+            # no long spaces
+            text = ' '.join(text.split())
+            fetched_pages.append({
+                "title": result['title'],
+                "url": result['url'],
+                "content": page['soup'].get_text(),
+                "raw_text": text,
+                "preprocessed_text": nlp.preprocess_text(text),
+                "soup": page['soup']
+            })
+            print(f"Fetched {result['title']} successfully")
+        else:
+            print(f"Error fetching {result['title']}: {page['error']}")
+    # endfor
+    if not fetched_pages:
+        state["fetched_pages"] = []
+        state["error"] = "No pages were successfully fetched"
+        return {"state": state, "next": END}
+    print(f"Fetched {len(fetched_pages)} pages successfully")
+    state["fetched_pages"] = fetched_pages
+    return state
+
+def select_seeds(state: ScraperState) -> ScraperState:
+    global llm_context
+    # Access the global context
+    global llm_context
+    model = llm_context["model"]
+    tokenizer = llm_context["tokenizer"]
+    device = llm_context["device"]
+    """
+        1. Generate topic seeds using bertopic model .
+    """
+    if not state["fetched_pages"]:
+        state["discovered_schema"] = {"error": "No pages were successfully fetched"}
+        return state
+    df = pd.DataFrame(state["fetched_pages"])
+    print(df.head())
+    topics = nlp.extract_topics(df, model)
+    print(f"Discovered {len(set(topics))} topics")
+    for i, topic in enumerate(set(topics)):
+        print(f"Topic {i}: {topic}")
+    return state
 
 def generate_schema(state: ScraperState) -> ScraperState:
     """
@@ -224,6 +221,7 @@ def relative_pages(state: ScraperState) -> ScraperState:
     crawl_pages = []
     for url in state['search_results']:
         # 1.1 get urls from pages
+        print(f"Visiting page : {url['title']} | {url['url']}")
         page = wb.visit_website(url['url'])
         if not page.get('error') :
             if len(crawl_pages)==0:
@@ -242,13 +240,10 @@ def relative_pages(state: ScraperState) -> ScraperState:
         if response.get("soup"):
             # Extract paragraphs
             urls = wb.find_url_with_context(response)
-            print(f"{urls}")
             # give urls in batches
-            prevTake=0# it has to stop sometime...
-            toBreak = 0
-            for num in range(0,len(urls),10):
+            for num in range(0,len(urls),5):
                 try :
-                    gen_urls = intg.check_relevance(urls[num:num+10],state["discovered_schema"], tokenizer , device , model)
+                    gen_urls = intg.check_relevance(urls[num:num+5],state["discovered_schema"], tokenizer , device , model)
                 except Exception as e:
                     gen_urls = intg.check_relevance(urls[num:],state["discovered_schema"], tokenizer , device , model)
                 finally :
@@ -256,24 +251,25 @@ def relative_pages(state: ScraperState) -> ScraperState:
                         # this takes a lot of time . 
                         # it is also inaccurate .
                         # let's simplify .
+                        print(f"{gen_urls['reasoning']}")
+                        print(f"\n\nFound {len(relative_urls)}/25 .\n\n")
                         if gen_urls.get('probable_urls',None):
-                            relative_urls.extend([gen_urls])
+                            relative_urls.extend(gen_urls.get('probable_urls'))
                             if len(gen_urls['probable_urls'])>=2 or len(relative_urls)>25:#hardcoded for now
                                 break
-                        #    prevTake=len(gen_urls['probable_urls'])
-                        #else:
-                        #    if toBreak>1:
-                        #    toBreak+=1
                     #endif
-                print(relative_urls)
         #endif
         if len(relative_urls)>25:
             print("Found enough relative pages, stopping search")
             break
     #endfor
     state['relative_urls'] = relative_urls
+    print(f"Found {state['relative_urls']} relative URLs")
+    return state
 
 def create_dataset(state: ScraperState) -> ScraperState:
+    print("Creating dataset from discovered schema...")
+    print(f"Relative URLs: {state['relative_urls']}")
     global llm_context
     # Access the global context
     global llm_context
@@ -281,9 +277,9 @@ def create_dataset(state: ScraperState) -> ScraperState:
     tokenizer = llm_context["tokenizer"]
     device = llm_context["device"]
     schema = state["discovered_schema"]
-    if not state["relative_urls"]:
-        state["discovered_schema"] = {"error": "No schema was produced ."}
-        return state
+    #if not state["relative_urls"]:
+    #    state["discovered_schema"] = {"error": "No schema was produced ."}
+    #    return state
     '''
         Crawl probable webpages based on previous results .
         1. get urls from already scrapped pages .
@@ -292,14 +288,18 @@ def create_dataset(state: ScraperState) -> ScraperState:
     '''
     # 1. get all urls
     crawl_pages = []
-    for urls in state['probable_urls']:
-        for url in urls:
-            # 1.1 get urls from pages
+    for url in state['relative_urls']:
+        # 1.1 get urls from pages
+        try:
             page = wb.visit_website(url)
             par = wb.get_all_paragraphs(page['soup'])
             text = "\n".join([p["text"] for p in par])
             row = intg.row_creation(text , schema , tokenizer , device , model)
             print(f"Row created: {row}")
+        except Exception as e:
+            print(f"Error processing {url}: {e}")
+            continue
+        #endif
     #endfor
    
 # Define a global context variable to store non-serializable objects
@@ -311,23 +311,28 @@ def create_scraper_graph():
         A function to initialize the workflow
     '''
     graph = StateGraph(ScraperState)
+    # Phase 0: Initialize the system
+    print("Phase 0: Initializing the system...")
     graph.add_node("initialize_system", initialize_system)
-    graph.add_node("generate_search_queries", generate_search_queries)# create web queries and find pages .
-    # improve
-    graph.add_node("fetch_batch_of_pages", fetch_batch_of_pages)# fetch pages in batches to determine the probable schema .
-    graph.add_node("generate_schema", generate_schema)
-    graph.add_node("relative_pages" , relative_pages)
-    graph.add_node("create_dataset", create_dataset)  # Create dataset from the schema
-    # start crawling
-    
-    # Add edges
-    graph.add_edge("initialize_system", "generate_search_queries")
-    graph.add_edge("generate_search_queries", "fetch_batch_of_pages")
-    graph.add_edge("fetch_batch_of_pages", "generate_schema")
-    graph.add_edge("generate_schema", "relative_pages")
-    graph.add_edge("relative_pages", "create_dataset")
+    # Phase 1: Query Expansion
+    print("Phase 1: Query Expansion...")
+    graph.add_node("query_expansion", query_expansion)
+    # Phase 2: Web Search
+    print("Phase 2: Web Search...")
+    graph.add_node("web_search", web_search)
+    # Phase 3: Generate Schema
+    print("Phase 3: Generate Schema...")
+    graph.add_node("select_seeds", select_seeds)
+    #graph.add_node("generate_schema", generate_schema)
+    # Phase 4: Crawl
+    #print("Phase 4: Crawl...")
 
-    graph.add_edge("create_dataset", END)
+    # Add edges
+    graph.add_edge("initialize_system", "query_expansion")
+    graph.add_edge("query_expansion", "web_search")
+    graph.add_edge("web_search","select_seeds")
+    
+    graph.add_edge("select_seeds", END)
     
     # Set entry point
     graph.set_entry_point("initialize_system")
@@ -353,28 +358,12 @@ def main():
     # Initialize state
     state = {
         "query": user_query,
+        "queries_expansion": [],
         "search_results": [],
-        "fetched_pages": [],
-        "current_batch": [],
-        "discovered_schema": {},
-        "relative_urls": [],
-        "batch_size": 5,
-        "batch_count": 0,
-        "dataset_path": dataset_path,
-        "selected_column": selected_column,
-        "dataset_entities": [],
-        "examine_urls" : []
     }
     
     # Run the graph
     result = scraper.invoke(state)
     
-    # Show results
-    print("\n\nFinal Results:")
-    print(f"Pages fetched: {len(result['fetched_pages'])}")
-    print("\nDiscovered Schema:")
-    print(json.dumps(result["discovered_schema"], indent=2))
-    print("\nSchema saved to 'discovered_schema.json'")
-
 if __name__ == "__main__":
     main()
