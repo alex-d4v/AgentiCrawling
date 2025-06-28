@@ -8,7 +8,42 @@ import time
 import intelligence as intg
 import web_search as wb
 import nlp
+# parallel
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+def fetch_single_page(result):
+    """
+    Fetch a single page and return the processed data
+    """
+    try:
+        print(f"Visiting page: {result['title']} | {result['url']}")
+        page = wb.visit_website(result['url'])
+        
+        if not page.get('error'):
+            # extract text as a whole
+            text = page['soup'].get_text()
+            # no long spaces
+            text = ' '.join(text.split())
+            
+            page_data = {
+                "title": result['title'],
+                "url": result['url'],
+                "content": page['soup'].get_text(),
+                "raw_text": text,
+                "preprocessed_text": nlp.preprocess_text(text),
+                "soup": page['soup']
+            }
+            print(f"Fetched {result['title']} successfully")
+            return {"success": True, "data": page_data, "error": None}
+        else:
+            print(f"Error fetching {result['title']}: {page['error']}")
+            return {"success": False, "data": None, "error": page['error']}
+            
+    except Exception as e:
+        print(f"Exception fetching {result['title']}: {str(e)}")
+        return {"success": False, "data": None, "error": str(e)}
+    
 # State definition
 class ScraperState(TypedDict, total=False):
     # Required fields
@@ -16,10 +51,13 @@ class ScraperState(TypedDict, total=False):
     queries_expansion: List[str]
     search_results: List[Dict[str, Any]]
     fetched_pages: List[Dict[str, Any]]
+    discovered_schema: Dict
 
 # Node functions
 def initialize_system(state: ScraperState) -> ScraperState:
-    """Initialize the system and load dataset if provided"""
+    """
+        Initialize the system and load dataset if provided
+    """
     print("Initializing LLM...")
     model, tokenizer, device = intg.initialize_llm()
     
@@ -78,7 +116,7 @@ def query_expansion(state: ScraperState) -> ScraperState:
                 entity=entity, 
                 context="", 
                 user_prompt=query,
-                query_num=2
+                query_num=4
             )
             print(f"Generated queries for {entity}: {entity_queries}")
             queries.extend(entity_queries)
@@ -116,27 +154,35 @@ def web_search(state: ScraperState) -> ScraperState:
     print(f"Found {len(web_search_reasults)} search results")
     state["search_results"] = web_search_reasults
     # visit the pages and store their content
+    # Parallel page fetching
     fetched_pages = []
-    for result in state["search_results"]:# this can be done in parallel
-        print(f"Visiting page: {result['title']} | {result['url']}")
-        page = wb.visit_website(result['url'])
-        if not page.get('error'):
-            # extract text as a whole
-            text = page['soup'].get_text()
-            # no long spaces
-            text = ' '.join(text.split())
-            fetched_pages.append({
-                "title": result['title'],
-                "url": result['url'],
-                "content": page['soup'].get_text(),
-                "raw_text": text,
-                "preprocessed_text": nlp.preprocess_text(text),
-                "soup": page['soup']
-            })
-            print(f"Fetched {result['title']} successfully")
-        else:
-            print(f"Error fetching {result['title']}: {page['error']}")
-    # endfor
+    error_count = 0
+    # Use ThreadPoolExecutor for parallel execution
+    max_workers = min(8, len(state["search_results"]))  # Limit concurrent requests
+    print(f"Starting parallel fetch with {max_workers} workers...")
+    start_time = time.time()
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_result = {
+            executor.submit(fetch_single_page, result): result 
+            for result in state["search_results"]
+        }
+        # Collect results as they complete
+        for future in as_completed(future_to_result):
+            result = future_to_result[future]
+            try:
+                page_result = future.result()
+                if page_result["success"]:
+                    fetched_pages.append(page_result["data"])
+                else:
+                    error_count += 1
+            except Exception as e:
+                print(f"Exception in thread for {result['title']}: {str(e)}")
+                error_count += 1
+    # end parallel thread pool
+    end_time = time.time()
+    print(f"Parallel fetch completed in {end_time - start_time:.2f} seconds")
+    print(f"Errors occurred: {error_count}/{len(state['search_results'])}")
     if not fetched_pages:
         state["fetched_pages"] = []
         state["error"] = "No pages were successfully fetched"
@@ -160,7 +206,7 @@ def select_seeds(state: ScraperState) -> ScraperState:
         return state
     df = pd.DataFrame(state["fetched_pages"])
     print(df.head())
-    topics = nlp.extract_topics(df, model)
+    topics , _ = nlp.extract_topics(df, model)
     print(f"Discovered {len(set(topics))} topics")
     for i, topic in enumerate(set(topics)):
         print(f"Topic {i}: {topic}")
@@ -177,7 +223,6 @@ def generate_schema(state: ScraperState) -> ScraperState:
     model = llm_context["model"]
     tokenizer = llm_context["tokenizer"]
     device = llm_context["device"]
-    
     if not state["fetched_pages"]:
         state["discovered_schema"] = {"error": "No pages were successfully fetched"}
         return state
@@ -322,17 +367,19 @@ def create_scraper_graph():
     graph.add_node("web_search", web_search)
     # Phase 3: Generate Schema
     print("Phase 3: Generate Schema...")
-    graph.add_node("select_seeds", select_seeds)
-    #graph.add_node("generate_schema", generate_schema)
+    #graph.add_node("select_seeds", select_seeds)
+    graph.add_node("generate_schema", generate_schema)
     # Phase 4: Crawl
-    #print("Phase 4: Crawl...")
+    print("Phase 4: Crawl...")
 
     # Add edges
     graph.add_edge("initialize_system", "query_expansion")
     graph.add_edge("query_expansion", "web_search")
-    graph.add_edge("web_search","select_seeds")
+    #graph.add_edge("web_search","select_seeds")
+    graph.add_edge("web_search","generate_schema")
     
-    graph.add_edge("select_seeds", END)
+    #graph.add_edge("select_seeds", END)
+    graph.add_edge("generate_schema", END)
     
     # Set entry point
     graph.set_entry_point("initialize_system")
@@ -360,6 +407,7 @@ def main():
         "query": user_query,
         "queries_expansion": [],
         "search_results": [],
+        "discovered_schema": {},
     }
     
     # Run the graph

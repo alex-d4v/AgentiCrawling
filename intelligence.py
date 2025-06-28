@@ -118,6 +118,7 @@ def query_creator(model, tokenizer, device, entity, context,user_prompt,query_nu
                 max_new_tokens=250 if middle_phrase else 100,
                 temperature=0.35 if middle_phrase else .2,
                 do_sample=True,
+                repetition_penalty=1.1,
                 pad_token_id=tokenizer.eos_token_id
             )
         
@@ -212,19 +213,19 @@ def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , m
     # Create a schema generation prompt for your model
     prompt = f"""
     <|user|>
-    You are an expert on creating dataset schemas for data analysis . 
-    Focus on only one entity to analyze .
-    I have collected content from {len(fetched_pages)} web pages about: {query}
-    Based on the content below, develop a solid dataset schema that could represent this information effectively .
-    {"Create a structured schema with appropriate data types that can be converted to tabular format ." if len(probable_schema)==0 else ""}
-    {middle_line if len(probable_schema)>0 else ""}
-    
-    Here's sample content from the pages:
+        You are an expert on creating dataset schemas for data analysis . 
+        The core entity of the dataset is based on a user query {query} .
+        The following is the content of {len(fetched_pages)} web pages based on this query .
+        Your task is to construct a dataset schema that could represent this information effectively .
+        {"Create a structured schema with appropriate data types that can be converted to tabular format ." if len(probable_schema)==0 else ""}
+        {middle_line if len(probable_schema)>0 else ""}
+        
+        Here's sample content from the pages:
 
-    {combined_content}
-    
-    Format your response as valid JSON that can be parsed with json.loads().
-    The JSON should include your reasoning process and the final schema.
+        {combined_content}
+        
+        Format your response as valid JSON that can be parsed with json.loads().
+        The JSON should include the name and the type of the fields .
     <|assistant|>
     """
     

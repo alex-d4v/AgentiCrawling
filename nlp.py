@@ -9,6 +9,7 @@ def preprocess_text(text, model_name="en_core_web_sm"):
     """
     # Load spaCy model
     nlp = spacy.load(model_name)
+    nlp.max_length = 50_000_000  # 50 million characters
     # Process the text with spaCy
     doc = nlp(text)
     # Filter out punctuation and verbs
@@ -26,27 +27,22 @@ def preprocess_text(text, model_name="en_core_web_sm"):
     preprocessed_text = ' '.join(filtered_tokens)
     return preprocessed_text
 
-def extract_topics(df , model):
-    # Create custom vectorizer to focus on meaningful terms
-    vectorizer_model = CountVectorizer(
-        ngram_range=(1, 2),  # Unigrams and bigrams
-        stop_words="english",
-        min_df=2,  # Term must appear in at least 2 documents
-        max_df=0.5,  # Term must appear in less than 50% of documents
-        lowercase=True
-    )
-    # Initialize BERTopic
+def extract_topics(df, model , nr_topics=None):
+    # Ensure min_topic_size is at least 2
+    print(f"Examining {len(df)} texts for topic extraction...")
     topic_model = BERTopic(
         embedding_model=model,
-        vectorizer_model=vectorizer_model,
-        min_topic_size=int(np.log(len(df))-1),# Minimum size of a topic , assuming a logarithmic scale
-        nr_topics=len(df),
+        nr_topics=nr_topics,
         calculate_probabilities=True,
         verbose=True
     )
     print("Fitting BERTopic model...")
-    # Fit the model and predict topics
     topics, probabilities = topic_model.fit_transform(df['preprocessed_text'].tolist())
     print(f"Discovered {len(set(topics))} topics")
-    return topics
+    # Print topic words
+    for topic_id in set(topics):
+        if topic_id != -1:
+            words = [word for word, _ in topic_model.get_topic(topic_id)[:3]]
+            print(f"Topic {topic_id}: {', '.join(words)}")
+    return topics, topic_model
     
