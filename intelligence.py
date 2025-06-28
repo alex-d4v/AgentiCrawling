@@ -239,6 +239,8 @@ def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , m
                 max_new_tokens=800,# limit the dataset field length
                 temperature=0.3,
                 do_sample=True,
+                repetition_penalty = 0.9,
+                top_p = 75,
                 pad_token_id=tokenizer.eos_token_id
             )
         
