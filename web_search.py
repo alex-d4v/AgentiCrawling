@@ -10,6 +10,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 
+# Local imports
+
+import gemini
+
 # Method 1: Using Requests (Note: this is prone to being blocked by Google)
 import urllib.parse
 from urllib.parse import urljoin, urlparse
@@ -283,6 +287,10 @@ def find_url_with_context(soup_or_response, context_size=1):
     Returns:
     - list: List of dictionaries containing matched URLs and their context
     """
+    # config
+
+    gemini_enabled = False # Determines whether the script will also return AI-generated context in addition to the context provided. (By default, False)
+
     # Handle input that could be soup object or response dict
     if isinstance(soup_or_response, BeautifulSoup):
         soup = soup_or_response
@@ -319,23 +327,48 @@ def find_url_with_context(soup_or_response, context_size=1):
                 link_index = i
                 break
         # If link is inside a paragraph, use that as context
-        context_paragraphs=None
+        context_paragraphs = None
         if link_index >= 0:
             start_idx = max(0, link_index - context_size)
             end_idx = min(len(paragraphs), link_index + context_size + 1)
             context_paragraphs = paragraphs[start_idx:end_idx]
-        #else:
-            # If link is not in paragraph, get closest paragraphs
-            #closest_p = min(paragraphs, key=lambda p: abs(p.sourceline - a_tag.sourceline)) if paragraphs else None
-            #context_paragraphs = [closest_p] if closest_p else []
+        else:
+            #If link is not in paragraph, get closest paragraphs
+            closest_p = min(paragraphs, key=lambda p: abs(p.sourceline - a_tag.sourceline)) if paragraphs else None
+            context_paragraphs = [closest_p] if closest_p else []
         # Extract text from context paragraphs
-        context_text=None
+        context_text = ""
         if context_paragraphs:
-            context_text = [p.get_text(strip=True) for p in context_paragraphs]
-        results.append({
-            'url': url_info['url'],
-            'link_text': url_info['text'],
-            'context': context_text if context_text else '',
-        })
-    
+            context_text = [p.get_text() for p in context_paragraphs]
+        
+        prompt = f"""
+
+        Given the following context about an <a> tag in an HTML page, provide a two-liner to describe the purpose of the link and where it goes.
+
+        Sample: 
+
+        Input: URL: /about-us, link_text: here, context (surrounding paragraphs of the <a> tag): ['You can learn more about us here or visit our blog for recent articles.']
+        
+        Output: This link provides users with more relevant information about the website, considering that they may have questions. It redirects them to an About Us page.
+
+        Now, respond with the given input: URL: {url_info['url']}, link_text: {url_info['text']}, context (surrounding paragraphs of the <a> tag): {str(context_text)}
+
+        """
+        if gemini_enabled == True:
+            try:
+                ai_context_text = gemini.generate(prompt)
+            except:
+                ai_context_text = ""
+            results.append({
+                'url': url_info['url'],
+                'link_text': url_info['text'],
+                'context': context_text,
+                'ai_context': ai_context_text
+            })
+        else:
+            results.append({
+                'url': url_info['url'],
+                'link_text': url_info['text'],
+                'context': context_text
+            })
     return results
