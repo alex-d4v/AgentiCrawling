@@ -85,6 +85,8 @@ def initialize_llm():
         except Exception as e:
             print(f"Error loading model: {e}")
             return None, None, None
+    else:
+        return "Gemini", None, None
 '''
 # Initialize LLM
 model, tokenizer, device = initialize_llm()
