@@ -173,6 +173,9 @@ def initialize_system(state: ScraperState) -> ScraperState:
         state["error"] = "Failed to initialize LLM"
         return {"state": state, "next": END}
     
+    if model == "Gemini": # Identifies that the intelligence script is not using Phi as an LLM.
+        model = None # Pass no model, tokenizer, or device to the functions in intelligence.py
+    
     # Set up a context object to store non-serializable items
     global llm_context
     llm_context = {
