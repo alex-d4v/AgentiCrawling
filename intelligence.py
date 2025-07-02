@@ -225,7 +225,7 @@ def infer_schema(fetched_pages , query , probable_schema, tokenizer , device , m
         {combined_content}
         
         Format your response as valid JSON that can be parsed with json.loads().
-        The JSON should include the name and the type of the fields .
+        The JSON should provide the schema only . Include the name and the type of the fields .
     <|assistant|>
     """
     
